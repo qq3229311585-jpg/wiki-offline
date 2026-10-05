@@ -8,6 +8,8 @@ import Foundation
 public struct Glossary: Sendable {
     public private(set) var terms: [(en: String, zh: String)] = []
     private var regex: NSRegularExpression?
+    /// 译后替换用：与 regex 相同，但跳过拉丁学名（后面紧跟小写种加词，如 Danio rerio）
+    private var postRegex: NSRegularExpression?
     private var map: [String: String] = [:]
     /// 本条目自指（全名 / 简称）：翻译前预替换
     private var selfTerms: Set<String> = []
@@ -28,6 +30,8 @@ public struct Glossary: Sendable {
         if !list.isEmpty {
             let alts = list.map { NSRegularExpression.escapedPattern(for: $0.en) }.joined(separator: "|")
             regex = try? NSRegularExpression(pattern: "(?<![\\p{L}\\p{N}])(?:\(alts))(?![\\p{L}\\p{N}])")
+            // 学名 "Genus species"：属名后面紧跟小写拉丁词，整体应保持原样，不能把属名单拎出来加中文括注
+            postRegex = try? NSRegularExpression(pattern: "(?<![\\p{L}\\p{N}])(?:\(alts))(?![\\p{L}\\p{N}])(?!\\s+\\p{Ll}{3,}(?!\\p{Ll}))")
         }
         self.selfTerms = Set(selfTerms.filter { map[$0] != nil })
         if !self.selfTerms.isEmpty {
@@ -45,9 +49,9 @@ public struct Glossary: Sendable {
 
     /// 翻译后：译文里残留的英文专名 → 自指用"中文"，其他用"中文（English）"（同一段只括注一次）
     public func postFix(_ translation: String) -> String {
-        guard let regex, Glossary.containsLatin(translation) else { return translation }
+        guard let postRegex, Glossary.containsLatin(translation) else { return translation }
         var annotated = Set<String>()
-        return replace(translation, with: regex) { en, ctx in
+        return replace(translation, with: postRegex) { en, ctx in
             guard let zh = map[en] else { return en }
             if selfTerms.contains(en) { return zh }
             // 已经是 "（English）" 括注的一部分就不动

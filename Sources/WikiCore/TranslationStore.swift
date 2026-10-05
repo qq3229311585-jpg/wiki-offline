@@ -59,6 +59,28 @@ public final class TranslationStore: @unchecked Sendable {
         }
     }
 
+    /// 在线版：给旧译文加上 "legacy:" 前缀收起来（只做一次，不删除）。
+    /// 旧译文没有记录是哪个引擎翻的（混着云端与本机），收起后"本机"和"DeepSeek"两份缓存都从干净状态开始。
+    public func archiveLegacyUnitsOnce() {
+        guard meta("unit-ns-v1") == nil else { return }
+        queue.sync {
+            _ = try? exec("UPDATE unit SET path = 'legacy:' || path WHERE path NOT LIKE 'ds:%' AND path NOT LIKE 'ds-pro:%' AND path NOT LIKE 'legacy:%';")
+        }
+        setMeta("unit-ns-v1", "1")
+    }
+
+    /// 清掉某一篇文章的全部段落译文（"重新翻译本篇"用）
+    public func clearTranslations(for path: String) {
+        queue.sync {
+            transaction {
+                let st = prepare("DELETE FROM unit WHERE path = ?")
+                defer { sqlite3_finalize(st) }
+                bind(st, [path])
+                sqlite3_step(st)
+            }
+        }
+    }
+
     public func add(_ entries: [String: String], for path: String) {
         guard !entries.isEmpty else { return }
         queue.sync {

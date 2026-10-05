@@ -14,6 +14,7 @@ let package = Package(
     platforms: [.macOS("26.0")],
     products: [
         .executable(name: "WikiOffline", targets: ["WikiOffline"]),
+        .executable(name: "WikiOnline", targets: ["WikiOnline"]),
         .executable(name: "wikitool", targets: ["wikitool"]),
         .executable(name: "makezim", targets: ["makezim"]),
     ],
@@ -40,6 +41,15 @@ let package = Package(
             name: "WikiOffline",
             dependencies: ["WikiCore"],
             path: "Sources/WikiOffline",
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
+            ]
+        ),
+        // 在线版 SwiftUI App（共享 WikiCore；数据来自维基百科网络接口）
+        .executableTarget(
+            name: "WikiOnline",
+            dependencies: ["WikiCore"],
+            path: "Sources/WikiOnline",
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
             ]

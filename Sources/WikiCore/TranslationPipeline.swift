@@ -120,6 +120,17 @@ public enum TranslationPipeline {
         return out
     }
 
+    /// 中文字符占（中文字符 + 英文字母）的比例。接近 0 说明译文基本还是英文。
+    public static func chineseShare(_ s: String) -> Double {
+        var cjk = 0, latin = 0
+        for u in s.unicodeScalars {
+            if TranslationGuard.isCJK(u) { cjk += 1 }
+            else if u.isASCII, CharacterSet.letters.contains(u) { latin += 1 }
+        }
+        let total = cjk + latin
+        return total == 0 ? 1 : Double(cjk) / Double(total)
+    }
+
     /// 专名回填：译文里原样残留的英文链接文字，如果有已知中文标题，就替换成"中文（English）"
     public static func backfill(_ translation: String, links: [UnitLink], titleZh: (String) -> String?) -> String {
         guard !links.isEmpty else { return translation }
@@ -132,6 +143,8 @@ public enum TranslationPipeline {
             // 避免替换已经是"（English）"形式的括注
             if out.contains("（\(l.text)）") || out.contains("(\(l.text))") { continue }
             if let r = out.range(of: l.text) {
+                // 学名（Danio rerio）：链接文字后面紧跟小写拉丁词时保持原样
+                if out[r.upperBound...].range(of: #"^\s+\p{Ll}{3,}(?!\p{Ll})"#, options: .regularExpression) != nil { continue }
                 out.replaceSubrange(r, with: "\(zh)（\(l.text)）")
                 done.insert(l.text)
             }
@@ -185,10 +198,13 @@ public enum TranslationPipeline {
             }
             if parts.count == n {
                 var t = join(parts)
-                if let glossary { t = glossary.postFix(t) }
+                // 译文主要还是英文（例如参考文献里被保留的英文刊名/文章标题）时，不做专名替换与回填，
+                // 否则会在英文标题中间插进“新疆维吾尔自治区（Xinjiang）”这样的中英混杂片段。
+                let mostlyChinese = chineseShare(t) >= 0.3
+                if let glossary, mostlyChinese { t = glossary.postFix(t) }
                 // 端侧模型在中英混排输入下偶尔输出繁体字，统一转简体
                 t = t.applyingTransform(StringTransform("Hant-Hans"), reverse: false) ?? t
-                out[inp.key] = backfill(t, links: inp.links, titleZh: titleZh)
+                out[inp.key] = mostlyChinese ? backfill(t, links: inp.links, titleZh: titleZh) : t
                 words += wordCount(inp.text)
                 chars += inp.text.count
             } else {

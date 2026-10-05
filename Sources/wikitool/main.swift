@@ -33,6 +33,93 @@ struct WikiTool {
         guard args.count >= 2 else { fail("用法见源码头部注释") }
         let cmd = args[1]
         switch cmd {
+        case "online":
+            // wikitool online <suggest|search|zhsearch|article|zh|picks|random> [参数…]   —— 在线版数据层验证（需要网络）
+            let svc = OnlineService(supportDirectory: FileManager.default.temporaryDirectory.appendingPathComponent("wikitool-online", isDirectory: true))
+            let sub = args.count > 2 ? args[2] : ""
+            let q = args.count > 3 ? args[3...].joined(separator: " ") : ""
+            let t0 = Date()
+            switch sub {
+            case "suggest":
+                let r = await svc.suggestions(q, limit: 8)
+                print("--- \(r.count) 条, \(ms(t0))")
+                for x in r { print("  \(x.title)  [\(x.path)]  \(x.snippet ?? "")\(x.redirectedFrom.map { "  ← \($0)" } ?? "")") }
+            case "search":
+                let r = await svc.fulltext(q, limit: 8)
+                print("--- \(r.results.count) / 约 \(r.total) 条, \(ms(t0))")
+                for x in r.results { print("  \(x.title)  \(HTMLCleaner.plainText(x.snippet ?? "").prefix(90))") }
+            case "zhsearch":
+                let r = await svc.zhSearch(q, limit: 12)
+                print("--- 中文维基命中 \(r.count) 条(含英文对应条目), \(ms(t0))")
+                for x in r { print("  \(x.zhTitle)  →  \(x.enTitle)   \(x.snippet.prefix(50))") }
+            case "zh":
+                let r = await svc.chineseTitles(for: q.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) })
+                print("--- \(r.count) 个中文标题, \(ms(t0))")
+                for (k, v) in r.sorted(by: { $0.key < $1.key }) { print("  \(k)  →  \(v)") }
+            case "picks":
+                let r = await svc.dailyPicks(count: 7)
+                print("--- \(r.count) 条推荐, \(ms(t0))")
+                for x in r { print("  \(x.ref.title)  [\(x.ref.path)]  \(x.summary.prefix(70))") }
+            case "random":
+                for _ in 0..<3 { if let r = await svc.randomArticle() { print("  \(r.title)") } }
+            case "article":
+                for round in 1...2 {
+                    let t = Date()
+                    switch await svc.content(path: q) {
+                    case .ok(let res):
+                        let html = String(decoding: res.data, as: UTF8.self)
+                        let p = HTMLCleaner.process(html, fallbackTitle: res.title)
+                        let units = UnitExtractor.extract(title: p.title, shortDescription: p.shortDescription, bodyHTML: p.body)
+                        let words = units.reduce(0) { $0 + $1.text.split(separator: " ").count }
+                        let links = PopularityRanker.links(in: p.body, from: res.path)
+                        print("第\(round)次 \(ms(t))  来源: \(res.fromCache ? "磁盘缓存" : "网络")  路径: \(res.path)  重定向: \(res.wasRedirect)")
+                        print("   标题: \(p.title)  描述: \(p.shortDescription ?? "-")")
+                        print("   原始 \(res.data.count) B → 清洗后 \(p.body.utf8.count) B; 翻译单元 \(units.count) 个, \(words) 词; 站内链接 \(links.count) 个")
+                        if round == 1 { for u in units.prefix(4) { print("   [\(u.key)] \(u.text.prefix(100))") } }
+                    case .notFound: print("第\(round)次: 找不到条目")
+                    case .failed(let m): print("第\(round)次: 失败 \(m)")
+                    }
+                }
+            case "bench":
+                // 预热后连续查询，模拟真实使用时的耗时
+                let t0 = Date(); await svc.prewarm(); print("预热(两个站点握手): \(ms(t0))")
+                for w in ["白纸运动", "百度运动", "线粒体", "苹果", "白纸运动"] {
+                    let t = Date(); let r = await svc.zhSearch(w, limit: 8)
+                    print("  中文搜索 \(w): \(ms(t))  \(r.count) 条  \(r.first.map { "\($0.zhTitle)→\($0.enTitle) | \($0.snippet.prefix(14))" } ?? "")")
+                }
+                for w in ["einst", "mitochon", "paper"] {
+                    let t = Date(); let r = await svc.suggestions(w, limit: 10); print("  英文联想 \(w): \(ms(t))  \(r.count) 条")
+                }
+            case "page":
+                // wikitool online page <标题> <资源目录> <输出.html>   —— 生成最终页面（浏览器里检查排版用）
+                let parts = args.dropFirst(3).map { String($0) }
+                guard parts.count >= 3 else { fail("用法: online page <标题> <资源目录> <输出.html>") }
+                guard case .ok(let res) = await svc.content(path: parts[0]) else { fail("取不到文章") }
+                let dir = URL(fileURLWithPath: parts[1])
+                let css = (try? String(contentsOf: dir.appendingPathComponent("reader.css"), encoding: .utf8)) ?? ""
+                let js = (try? String(contentsOf: dir.appendingPathComponent("reader.js"), encoding: .utf8)) ?? ""
+                let p = HTMLCleaner.process(String(decoding: res.data, as: UTF8.self), fallbackTitle: res.title)
+                // 可选：WIKI_DB=<译文库> WIKI_NS=<命名空间前缀，如 ds: / legacy:> WIKI_MODE=<original|translated|bilingual>，让测试页带上真实译文
+                let env = ProcessInfo.processInfo.environment
+                var cache: [String: Any] = [:]
+                if let dbPath = env["WIKI_DB"], let store = try? TranslationStore(url: URL(fileURLWithPath: dbPath)) {
+                    let t = store.translations(for: (env["WIKI_NS"] ?? "") + res.path)
+                    if !t.isEmpty { cache["t"] = t }
+                    let titles = store.titlesZh(for: Array(PopularityRanker.links(in: p.body, from: res.path).prefix(800)))
+                    if !titles.isEmpty { cache["l"] = titles }
+                    print("译文 \(t.count) 段, 链接中文名 \(titles.count) 个")
+                }
+                let mode = ReadingMode(rawValue: env["WIKI_MODE"] ?? "original") ?? .original
+                var html = ArticlePage.buildWithCache(path: res.path, title: p.title, shortDescription: p.shortDescription, body: p.body,
+                                                      style: ReaderStyle(mode: mode), cache: cache, css: css, js: js,
+                                                      kicker: "Wikipedia · 维基在线", footer: "测试页")
+                // 浏览器里没有 WKWebView 的消息通道，补一个空实现；并放开内容安全策略里的脚本限制不变
+                html = html.replacingOccurrences(of: "<head>", with: "<head><script>window.webkit={messageHandlers:{reader:{postMessage:function(m){(window.__msgs=window.__msgs||[]).push(m)}}}};</script>")
+                try? html.write(toFile: parts[2], atomically: true, encoding: .utf8)
+                print("已写出 \(parts[2])  \(html.utf8.count) B")
+            default: print("子命令: suggest | search | zhsearch | zh | picks | random | article | page")
+            }
+
         case "lang-status":
             let a = LanguageAvailability()
             let s1 = await a.status(from: .init(identifier: "en"), to: .init(identifier: "zh-Hans"))

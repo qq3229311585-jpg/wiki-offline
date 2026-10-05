@@ -130,7 +130,9 @@ public enum ArticlePage {
         style: ReaderStyle,
         cache: [String: Any],
         css: String,
-        js: String
+        js: String,
+        kicker: String = "Wikipedia · 维基离线",
+        footer: String = "本文来自英文维基百科，依 CC BY-SA 4.0 授权 · 离线阅读"
     ) -> String {
         let cacheJSON = jsonObjectForScript(cache)
         let desc = shortDescription.map { "<p id=\"article-desc\" class=\"article-desc\">\(escape($0))</p>" } ?? ""
@@ -148,7 +150,7 @@ public enum ArticlePage {
         <body>
         <main id="reader">
         <header class="article-header">
-        <div class="kicker">Wikipedia · 维基离线</div>
+        <div class="kicker">\(escape(kicker))</div>
         <h1 id="article-title">\(escape(title))</h1>
         \(desc)
         <div id="article-meta"></div>
@@ -156,7 +158,7 @@ public enum ArticlePage {
         <div id="wiki-body">
         \(body)
         </div>
-        <footer class="article-footer">本文来自英文维基百科，依 CC BY-SA 4.0 授权 · 离线阅读</footer>
+        <footer class="article-footer">\(escape(footer))</footer>
         </main>
         <script type="application/json" id="wiki-tr-cache">\(cacheJSON)</script>
         <script>\(js)</script>
@@ -186,6 +188,35 @@ public enum ArticlePage {
         <h1 class="missing-title">离线包里没有这篇文章</h1>
         <p class="missing-sub">“\(escape(title))” 不在这份离线维基（热门 100 万篇）中。</p>
         <p class="missing-hint">可以按 ⌘K 搜索相近的条目，或按 ⌘[ 返回上一页。</p>
+        </div>
+        </main>
+        <script>\(js)</script>
+        </body>
+        </html>
+        """
+    }
+
+    /// 通用提示页（在线版用：条目不存在、网络不可用等）。带 wiki-missing 标记，不会被记入历史。
+    public static func messagePage(path: String, icon: String, title: String, sub: String, hint: String,
+                                   css: String, js: String, style: ReaderStyle) -> String {
+        return """
+        <!DOCTYPE html>
+        <html lang="zh-Hans" data-mode="original"\(style.htmlAttributesTail)>
+        <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="\(contentSecurityPolicy)">
+        <meta name="wiki-path" content="\(escape(path))">
+        <meta name="wiki-missing" content="1">
+        <title>\(escape(title))</title>
+        <style>\(css)</style>
+        </head>
+        <body>
+        <main id="reader" class="missing">
+        <div class="missing-card">
+        <div class="missing-icon">\(escape(icon))</div>
+        <h1 class="missing-title">\(escape(title))</h1>
+        <p class="missing-sub">\(escape(sub))</p>
+        <p class="missing-hint">\(escape(hint))</p>
         </div>
         </main>
         <script>\(js)</script>
