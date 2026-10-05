@@ -1,0 +1,356 @@
+/* 维基离线 · 杂志风阅读排版 */
+:root {
+  --fs: 1;
+  --paper: #f6f1e7;
+  --paper-2: #efe8db;
+  --ink: #1d1a16;
+  --ink-2: #3a342c;
+  --muted: #7b7165;
+  --faint: #a59a8c;
+  --rule: rgba(60, 45, 30, 0.16);
+  --rule-strong: rgba(60, 45, 30, 0.32);
+  --accent: #c0392b;
+  --accent-soft: rgba(192, 57, 43, 0.12);
+  --skeleton: rgba(60, 45, 30, 0.08);
+  --serif-en: "New York", ui-serif, "Iowan Old Style", Georgia, serif;
+  --serif-zh: "Songti SC", "STSong", serif;
+  --sans: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --measure: 38rem;
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  --paper: #23211e;
+  --paper-2: #2b2925;
+  --ink: #ebe5d9;
+  --ink-2: #d6cfc2;
+  --muted: #a39a8c;
+  --faint: #7d7569;
+  --rule: rgba(235, 225, 210, 0.13);
+  --rule-strong: rgba(235, 225, 210, 0.26);
+  --accent: #e2604c;
+  --accent-soft: rgba(226, 96, 76, 0.16);
+  --skeleton: rgba(235, 225, 210, 0.08);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --paper: #23211e;
+    --paper-2: #2b2925;
+    --ink: #ebe5d9;
+    --ink-2: #d6cfc2;
+    --muted: #a39a8c;
+    --faint: #7d7569;
+    --rule: rgba(235, 225, 210, 0.13);
+    --rule-strong: rgba(235, 225, 210, 0.26);
+    --accent: #e2604c;
+    --accent-soft: rgba(226, 96, 76, 0.16);
+    --skeleton: rgba(235, 225, 210, 0.08);
+    color-scheme: dark;
+  }
+}
+
+html {
+  font-size: calc(18px * var(--fs));
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: 2rem;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif-en);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  hyphens: auto;
+}
+html.font-sans body { font-family: var(--sans); }
+::selection { background: var(--accent-soft); }
+
+#reader { max-width: var(--measure); margin: 0 auto; padding: 4.2rem 2rem 6rem; }
+
+/* ===== 刊头式标题区 ===== */
+.article-header { text-align: center; margin: 0 auto 2.6rem; max-width: 46rem; animation: rise .5s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.kicker {
+  font-family: var(--sans);
+  font-size: .68rem;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.1rem;
+}
+#article-title {
+  font-family: var(--serif-en);
+  font-weight: 700;
+  font-size: 2.9rem;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--ink);
+}
+.article-desc { margin: .9rem auto 0; color: var(--muted); font-size: 1.02rem; font-style: italic; max-width: 32rem; }
+#article-meta {
+  margin: 1.4rem auto 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  width: 12rem;
+  font-family: var(--sans);
+  font-size: .72rem;
+  letter-spacing: .08em;
+  color: var(--faint);
+}
+
+/* ===== 正文 ===== */
+#wiki-body { font-size: 1rem; }
+#wiki-body p { margin: 0 0 1.15em; }
+a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); text-decoration-thickness: 1px; text-underline-offset: .2em; }
+a:hover { color: var(--accent); text-decoration-color: var(--accent); }
+a.ext-link { text-decoration-style: dotted; color: var(--muted); }
+b, strong { font-weight: 700; }
+
+/* 导语：更大字号 + 首字下沉 */
+#wiki-body .lede { font-size: 1.2em; line-height: 1.6; color: var(--ink); margin-bottom: 1.5em; }
+#wiki-body .lede > .en { display: block; }
+html:not([data-mode="original"]) #wiki-body .lede.has-tr > .tr { display: block; }
+html[data-mode="translated"] #wiki-body .lede.has-tr > .en { display: none; }
+#wiki-body .lede > .en::first-letter, html[data-mode="translated"] #wiki-body .lede.has-tr > .tr::first-letter {
+  float: left;
+  font-family: var(--serif-en);
+  font-weight: 700;
+  font-size: 3.6em;
+  line-height: .82;
+  margin: .08em .1em 0 0;
+  color: var(--accent);
+}
+html[data-mode="translated"] #wiki-body .lede.has-tr > .tr::first-letter { font-family: var(--serif-zh); font-size: 3.1em; line-height: .9; margin-top: .04em; }
+
+/* 章节：序号 + 细线 */
+#wiki-body { counter-reset: sec; }
+h2, h3, h4, h5, h6 { font-family: var(--serif-en); color: var(--ink); line-height: 1.25; scroll-margin-top: 2rem; }
+#wiki-body h2 {
+  counter-increment: sec;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 3.2rem 0 1.1rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule-strong);
+  position: relative;
+}
+#wiki-body h2::before {
+  content: counter(sec, decimal-leading-zero);
+  display: block;
+  font-family: var(--sans);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .22em;
+  color: var(--accent);
+  margin-bottom: .55rem;
+}
+#wiki-body h3 { font-size: 1.22rem; font-weight: 700; margin: 2.2rem 0 .7rem; }
+#wiki-body h3::before { content: ""; display: inline-block; width: .9rem; height: 1px; background: var(--accent); vertical-align: middle; margin-right: .55rem; }
+#wiki-body h4, #wiki-body h5, #wiki-body h6 { font-size: 1.04rem; font-weight: 700; margin: 1.6rem 0 .5rem; }
+.mw-heading { margin: 0; }
+.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+:target { animation: flash 1.8s ease-out; }
+
+ul, ol { padding-left: 1.4em; margin: .4em 0 1.2em; }
+li { margin: .3em 0; }
+li::marker { color: var(--accent); }
+dl { margin: .6em 0 1.2em; }
+dt { font-weight: 700; margin-top: .6em; }
+dd { margin: .2em 0 .5em 1.3em; }
+blockquote {
+  margin: 2rem 0;
+  padding: 0 0 0 1.4rem;
+  border-left: 2px solid var(--accent);
+  font-style: italic;
+  font-size: 1.08em;
+  color: var(--ink-2);
+}
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5em auto; width: 30%; }
+pre, code, kbd, samp, tt { font-family: var(--mono); font-size: .84em; }
+pre { background: var(--paper-2); padding: 1em 1.1em; border-radius: 4px; overflow-x: auto; line-height: 1.5; }
+code { background: var(--paper-2); padding: .1em .35em; border-radius: 3px; }
+pre code { background: none; padding: 0; }
+sup, sub { line-height: 0; }
+sup.reference, .reference { font-size: .62em; font-family: var(--sans); }
+sup.reference a { color: var(--faint); text-decoration: none; }
+sup.reference a:hover { color: var(--accent); }
+
+.hatnote, .dablink, .rellink {
+  font-family: var(--sans);
+  font-size: .78rem;
+  color: var(--muted);
+  margin: 0 0 1.4em;
+  padding: 0 0 .9em;
+  border-bottom: 1px dashed var(--rule);
+  font-style: normal;
+}
+.mwe-math-mathml-inline { display: inline !important; }
+.mwe-math-mathml-display { display: block !important; text-align: center; margin: 1em 0; overflow-x: auto; }
+
+/* ===== 信息框：杂志边栏 ===== */
+table.wiki-infobox, table.infobox {
+  float: right;
+  clear: right;
+  width: 16.5rem;
+  margin: .4rem -6rem 1.6rem 2rem;
+  border: 0;
+  border-top: 3px solid var(--accent);
+  border-collapse: collapse;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: .7rem;
+  line-height: 1.5;
+}
+table.wiki-infobox th, table.wiki-infobox td { padding: .45em .2em; vertical-align: top; text-align: left; border: 0; border-bottom: 1px solid var(--rule); background: none !important; color: inherit !important; }
+table.wiki-infobox th[colspan], table.wiki-infobox .infobox-above, table.wiki-infobox caption {
+  text-align: left;
+  font-family: var(--serif-en);
+  font-size: 1.35em;
+  font-weight: 700;
+  padding: .6em 0 .5em;
+  border-bottom: 1px solid var(--rule-strong);
+}
+table.wiki-infobox .infobox-header { font-family: var(--sans); text-transform: uppercase; letter-spacing: .12em; font-size: .9em; color: var(--accent) !important; padding-top: 1em; }
+table.wiki-infobox th[scope="row"], table.wiki-infobox .infobox-label { color: var(--muted) !important; font-weight: 600; width: 38%; }
+table.wiki-infobox ul { padding-left: 1em; margin: 0; }
+table.wiki-infobox .plainlist ul { list-style: none; padding: 0; }
+@media (max-width: 1100px) { table.wiki-infobox, table.infobox { margin-right: 0; } }
+@media (max-width: 760px) { table.wiki-infobox, table.infobox { float: none; width: 100%; margin: 0 0 1.6rem; } }
+
+/* ===== 表格 ===== */
+.table-wrap { overflow-x: auto; margin: 1.6em 0; }
+#wiki-body table:not(.wiki-infobox) { border-collapse: collapse; font-family: var(--sans); font-size: .76rem; line-height: 1.45; }
+#wiki-body table:not(.wiki-infobox) caption { font-weight: 600; padding: .4em 0 .7em; text-align: left; color: var(--muted); letter-spacing: .04em; }
+#wiki-body table.wikitable th, #wiki-body table.wikitable td { border: 0; border-bottom: 1px solid var(--rule); padding: .45em .7em; vertical-align: top; }
+#wiki-body table.wikitable th { border-bottom: 1px solid var(--rule-strong); text-align: left; font-weight: 700; }
+#wiki-body [style*="background"] { background: transparent !important; }
+#wiki-body [style*="color:"] { color: inherit !important; }
+
+/* 参考文献 */
+.mw-references-wrap, .reflist, .refbegin { font-family: var(--sans); font-size: .72rem; color: var(--muted); line-height: 1.55; }
+.mw-references-columns, .reflist-columns { column-width: 18rem; column-gap: 2rem; }
+ol.references { padding-left: 1.7em; }
+ol.references li { break-inside: avoid; margin-bottom: .35em; }
+.mw-cite-backlink a { color: var(--faint); text-decoration: none; }
+
+/* 噪音兜底 */
+.mw-editsection, .navbox, .vertical-navbox, .ambox, .metadata, .noprint, .catlinks, .printfooter,
+.mw-jump-link, .shortdescription, .sistersitebox, .portalbox, .mw-empty-elt, #toc, .toc,
+.locmap, .location-map, .thumb, .gallery, .mw-halign-right.notpageimage { display: none !important; }
+details > summary { list-style: none; cursor: default; }
+details > summary::-webkit-details-marker { display: none; }
+img { display: none; }
+
+.article-footer {
+  margin: 5rem auto 0;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+  width: 14rem;
+  font-family: var(--sans);
+  font-size: .66rem;
+  letter-spacing: .06em;
+  color: var(--faint);
+  text-align: center;
+}
+
+/* ===== 翻译三态 ===== */
+.tr { display: none; font-family: var(--serif-zh); }
+.retry { display: none; }
+
+/* 中文：英文先出现，译文到达后原地淡入替换 */
+html[data-mode="translated"] .u.has-tr > .en { display: none; }
+html[data-mode="translated"] .u.has-tr > .tr { display: inline; }
+html[data-mode="translated"] #wiki-body p.u.has-tr,
+html[data-mode="translated"] #wiki-body li.u.has-tr,
+html[data-mode="translated"] #wiki-body dd.u.has-tr,
+html[data-mode="translated"] #wiki-body blockquote .u.has-tr { line-height: 1.9; letter-spacing: .02em; text-align: justify; }
+html[data-mode="translated"] h2.u.has-tr > .tr, html[data-mode="translated"] h3.u.has-tr > .tr { font-weight: 700; letter-spacing: .02em; }
+html[data-mode="translated"] .u.peek > .en { display: block; font-size: .82em; color: var(--muted); margin-bottom: .35em; }
+html[data-mode="translated"] .infobox .u.has-tr > .tr, html[data-mode="translated"] table .u.has-tr > .tr { font-family: var(--sans); }
+
+/* 中英对照：英文小而淡在上，中文主字号在下 */
+html[data-mode="bilingual"] .u > .en { font-size: .8em; color: var(--muted); line-height: 1.55; }
+html[data-mode="bilingual"] .u.has-tr > .tr { display: block; font-size: 1em; color: var(--ink); line-height: 1.9; letter-spacing: .02em; margin-top: .3em; }
+html[data-mode="bilingual"] #wiki-body .lede > .en { font-size: .72em; }
+html[data-mode="bilingual"] #wiki-body .lede > .en::first-letter { float: none; font-size: 1em; color: inherit; margin: 0; }
+html[data-mode="bilingual"] h2.u > .en, html[data-mode="bilingual"] h3.u > .en { font-size: .55em; font-weight: 600; letter-spacing: .04em; }
+html[data-mode="bilingual"] h2.u.has-tr > .tr, html[data-mode="bilingual"] h3.u.has-tr > .tr { margin-top: .1em; font-weight: 700; }
+html[data-mode="bilingual"] table .u > .en { font-size: .9em; }
+html[data-mode="bilingual"] table .u.has-tr > .tr { font-family: var(--sans); font-size: 1em; line-height: 1.5; margin-top: .1em; }
+
+/* 标题：中文大，英文原名小而浅 */
+html:not([data-mode="original"]) #article-title.has-tr { display: flex; flex-direction: column; align-items: center; }
+html:not([data-mode="original"]) #article-title.has-tr > .tr {
+  display: block;
+  order: 1;
+  font-family: var(--serif-zh);
+  font-weight: 900;
+  font-size: 1.12em;
+  letter-spacing: .04em;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: var(--ink);
+}
+html:not([data-mode="original"]) #article-title.has-tr > .en {
+  display: block !important;
+  order: 2;
+  font-size: .36em;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: .7em;
+  letter-spacing: .02em;
+}
+html:not([data-mode="original"]) #article-desc.has-tr > .en { display: none; }
+html:not([data-mode="original"]) #article-desc.has-tr > .tr { display: inline; font-style: normal; }
+
+/* 现场翻译：骨架占位 + 逐段淡入上浮 */
+html[data-mode="bilingual"] .u.pending:not(.has-tr) > .tr {
+  display: block;
+  height: .95em;
+  width: 72%;
+  margin-top: .55em;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--skeleton) 0%, var(--accent-soft) 50%, var(--skeleton) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+html[data-mode="translated"] .u.pending:not(.has-tr) > .en { animation: breathe 1.6s ease-in-out infinite; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+html:not([data-mode="original"]) .u.fresh > .tr { animation: trIn .55s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes trIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+html:not([data-mode="original"]) .u.fresh > .tr { display: inline-block; }
+html[data-mode="bilingual"] .u.fresh > .tr { display: block; }
+html:not([data-mode="original"]) .u.failed:not(.has-tr) > .retry {
+  display: inline;
+  margin-left: .5em;
+  font-family: var(--sans);
+  font-size: .62rem;
+  letter-spacing: .06em;
+  color: var(--faint);
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted var(--faint);
+  cursor: pointer;
+  padding: 0;
+}
+html:not([data-mode="original"]) .u.failed .retry:hover { color: var(--accent); border-color: var(--accent); }
+a.tr-link { color: inherit; }
+
+/* ===== 缺失条目页 ===== */
+#reader.missing { display: flex; min-height: 70vh; align-items: center; justify-content: center; }
+.missing-card { text-align: center; font-family: var(--serif-zh); max-width: 28rem; }
+.missing-icon { font-size: 4rem; color: var(--accent); margin-bottom: .6rem; font-family: var(--serif-en); }
+.missing-title { font-size: 1.6rem; margin: 0 0 .7rem; font-weight: 900; }
+.missing-sub { color: var(--muted); margin: 0 0 .4rem; }
+.missing-hint { color: var(--faint); font-size: .85rem; font-family: var(--sans); }
